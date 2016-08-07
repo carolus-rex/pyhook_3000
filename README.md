@@ -9,9 +9,10 @@ Copy from [official site](http://sourceforge.net/apps/mediawiki/pyhook/index.php
 
 ## Install
 
-### Build with MSVC9
+### Building
 
-Make sure you are under "Visual Studio 2008 Command Prompt".
+Follow this nice guide: https://blog.ionelmc.ro/2014/12/21/compiling-python-extensions-on-windows/
+Then run from a command line:
 
 ```
 python setup.py build_ext --swig=path-to-swig.exe
@@ -20,6 +21,9 @@ pip install .
 
 ## About this fork
 
+This is a fork from Cosmo Du (a.k.a Answeror) own fork of the original pyhook.
+Original pyHook: https://sourceforge.net/projects/pyhook/
+Answeror's pyHook(pyhook_py3k): https://github.com/Answeror/pyhook_py3k
 ### Unicode
 
 Fixed unicode decoding bug of window title. This bug may cause crashing on exit randomly. Usually with console output:
@@ -29,6 +33,10 @@ Fixed unicode decoding bug of window title. This bug may cause crashing on exit 
 or
 
 > TypeError: KeyboardSwitch() takes exactly 9 arguments (1 given)
+
+In this fork you get the UNICODE WINDOWNAME instead of the ASCII WINDOWNAME(encoded acording to the system code page) in the original pyhook and in the Cosmo Du pyhook.
+Previously if your window name was 'niño' and 'ñ' is not defined in your system code page you would get a "?" disregard the text is properly displayed in the window tittle bar. 
+On python 2 WindowName is a UTF-8 encoded string. 
 
 ### Freezing
 

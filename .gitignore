@@ -3,5 +3,8 @@
 *.pyc
 build/
 dist/
+.idea/
+test/
 cpyHook.py
 cpyHook_wrap.c
+rebuild.bat
