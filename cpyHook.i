@@ -1,6 +1,5 @@
 %module cpyHook
 %include typemaps.i
-
 %{
   #define _WIN32_WINNT 0x400
   #include "windows.h"
@@ -46,15 +45,16 @@
     PyObject *arglist, *r;
     PKBDLLHOOKSTRUCT kbd;
     HWND hwnd;
-    PSTR win_name = NULL;
+    LPWSTR win_name = NULL;
     unsigned short ascii = 0;
     static int win_len;
     static long result;
     long pass = 1;
     PyGILState_STATE gil;
 
-#ifdef PY3K
-    PyObject *win_name_decoded = NULL;
+#ifndef PY3K
+    int s_win_name_size;
+    PSTR s_win_name = NULL;
 #endif
 
     // uncomment this next bit if you do not want to process events like "ctl-alt-del"
@@ -74,37 +74,34 @@
     // get the current foreground window (might not be the real window that received the event)
     hwnd = GetForegroundWindow();
 
-    // grab the window name if possible
-    win_len = GetWindowTextLength(hwnd);
+    // grab the window unicode name if possible
+    win_len = GetWindowTextLengthW(hwnd);
     if(win_len > 0) {
-      win_name = (PSTR) malloc(sizeof(char) * win_len + 1);
-      GetWindowText(hwnd, win_name, win_len + 1);
-    }
+	  win_name = (LPWSTR) malloc(sizeof(wchar_t) * win_len + 1);
+	  GetWindowTextW(hwnd, win_name, win_len + 1);
 
-#ifdef PY3K
-    win_name_decoded = PyUnicode_DecodeFSDefault(win_name);
+#ifndef PY3K
+      //UTF-8 encode the window name
+      s_win_name_size = WideCharToMultiByte(CP_UTF8, 0, win_name, -1, NULL, 0, NULL, NULL);
+      s_win_name = (PSTR) malloc(s_win_name_size);
+      WideCharToMultiByte(CP_UTF8, 0, win_name, -1, s_win_name, s_win_name_size, NULL, NULL);
 #endif
-
+    }
     // convert to an ASCII code if possible
     ascii = ConvertToASCII(kbd->vkCode, kbd->scanCode);
 
     // pass the message on to the Python function
 #ifdef PY3K
     arglist = Py_BuildValue("(iiiiiiiu)", wParam, kbd->vkCode, kbd->scanCode, ascii,
-                            kbd->flags, kbd->time, hwnd, win_name_decoded);
-#else
-    arglist = Py_BuildValue("(iiiiiiiz)", wParam, kbd->vkCode, kbd->scanCode, ascii,
                             kbd->flags, kbd->time, hwnd, win_name);
+#else
+    arglist = Py_BuildValue("(iiiiiiis)", wParam, kbd->vkCode, kbd->scanCode, ascii,
+                            kbd->flags, kbd->time, hwnd, s_win_name);
 #endif
     if(arglist == NULL)
       PyErr_Print();
 
     r = PyObject_CallObject(callback_funcs[WH_KEYBOARD_LL], arglist);
-
-#ifdef PY3K
-    // release unicode object
-    Py_DECREF(win_name_decoded);
-#endif
 
     // check if we should pass the event on or not
     if(r == NULL)
@@ -118,8 +115,12 @@
     PyGILState_Release(gil);
 
     // free the memory for the window name
-    if(win_name != NULL)
+    if(win_name != NULL){
       free(win_name);
+#ifndef PY3k
+      free(s_win_name);
+#endif
+    }
 
     // decide whether or not to call the next hook
     if(code < 0 || pass) {
@@ -136,14 +137,15 @@
     PyObject *arglist, *r;
     PMSLLHOOKSTRUCT ms;
     HWND hwnd;
-    PSTR win_name = NULL;
+    LPWSTR win_name = NULL;
     static int win_len;
     static long result;
     long pass = 1;
     PyGILState_STATE gil;
 
-#ifdef PY3K
-    PyObject *win_name_decoded = NULL;
+#ifndef PY3K
+    int s_win_name_size;
+    PSTR s_win_name = NULL;
 #endif
 
     // get the GIL
@@ -153,34 +155,31 @@
     ms = (PMSLLHOOKSTRUCT)lParam;
     hwnd = WindowFromPoint(ms->pt);
 
-    //grab the window name if possible
-    win_len = GetWindowTextLength(hwnd);
+    //grab the window unicode name if possible
+    win_len = GetWindowTextLengthW(hwnd);
     if(win_len > 0) {
-      win_name = (PSTR) malloc(sizeof(char) * win_len + 1);
-      GetWindowText(hwnd, win_name, win_len + 1);
-    }
+	  win_name = (LPWSTR) malloc(sizeof(wchar_t) * win_len + 1);
+	  GetWindowTextW(hwnd, win_name, win_len + 1);
 
-#ifdef PY3K
-    win_name_decoded = PyUnicode_DecodeFSDefault(win_name);
+#ifndef PY3K
+      //UTF-8 encode the window name
+      s_win_name_size = WideCharToMultiByte(CP_UTF8, 0, win_name, -1, NULL, 0, NULL, NULL);
+      s_win_name = (PSTR) malloc(s_win_name_size);
+      WideCharToMultiByte(CP_UTF8, 0, win_name, -1, s_win_name, s_win_name_size, NULL, NULL);
 #endif
-
+    }
     //build the argument list to the callback function
 #ifdef PY3K
     arglist = Py_BuildValue("(iiiiiiiu)", wParam, ms->pt.x, ms->pt.y, ms->mouseData,
-                            ms->flags, ms->time, hwnd, win_name_decoded);
-#else
-    arglist = Py_BuildValue("(iiiiiiiz)", wParam, ms->pt.x, ms->pt.y, ms->mouseData,
                             ms->flags, ms->time, hwnd, win_name);
+#else
+    arglist = Py_BuildValue("(iiiiiiis)", wParam, ms->pt.x, ms->pt.y, ms->mouseData,
+                            ms->flags, ms->time, hwnd, s_win_name);
 #endif
     if(arglist == NULL)
       PyErr_Print();
 
     r = PyObject_CallObject(callback_funcs[WH_MOUSE_LL], arglist);
-
-#ifdef PY3K
-    // release unicode object
-    Py_DECREF(win_name_decoded);
-#endif
 
     // check if we should pass the event on or not
     if(r == NULL)
@@ -194,8 +193,12 @@
     PyGILState_Release(gil);
 
     //free the memory for the window name
-    if(win_name != NULL)
+    if(win_name != NULL){
       free(win_name);
+#ifndef PY3k
+      free(s_win_name);
+#endif
+    }
 
     // decide whether or not to call the next hook
     if(code < 0 || pass)
