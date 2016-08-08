@@ -117,7 +117,7 @@
     // free the memory for the window name
     if(win_name != NULL){
       free(win_name);
-#ifndef PY3k
+#ifndef PY3K
       free(s_win_name);
 #endif
     }
@@ -195,7 +195,7 @@
     //free the memory for the window name
     if(win_name != NULL){
       free(win_name);
-#ifndef PY3k
+#ifndef PY3K
       free(s_win_name);
 #endif
     }
