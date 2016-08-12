@@ -39,7 +39,7 @@
 
 %wrapper %{
   unsigned short ConvertToASCII(unsigned int keycode, unsigned int scancode);
-	void UpdateKeyState(unsigned int vkey, int msg);
+	void UpdateKeyState(unsigned int vkey, WPARAM msg);
 
   LRESULT CALLBACK cLLKeyboardCallback(int code, WPARAM wParam, LPARAM lParam) {
     PyObject *arglist, *r;
@@ -48,7 +48,7 @@
     LPWSTR win_name = NULL;
     unsigned short ascii = 0;
     static int win_len;
-    static long result;
+    static LRESULT result;
     long pass = 1;
     PyGILState_STATE gil;
 
@@ -139,7 +139,7 @@
     HWND hwnd;
     LPWSTR win_name = NULL;
     static int win_len;
-    static long result;
+    static LRESULT result;
     long pass = 1;
     PyGILState_STATE gil;
 
@@ -289,7 +289,21 @@
 	  // (1 > 0) ? True : False
  		if (vkey == VK_MENU || vkey == VK_LMENU || vkey == VK_RMENU) {
  			key_state[vkey] = (down) ? 0x80 : 0x00;
- 			key_state[VK_MENU] = key_state[VK_LMENU] | key_state[VK_RMENU];
+// 			For some reason when doing ascii conversion if VK_MENU is set to 0x80
+//          the ALT + NUM combination fails to write the character.
+//          Also, in my spanish keyboard the combination alt gr + 4 stops working, it should
+//          give me a '~', but sometimes worked if i spammed both keys repeatedly, very wierd...
+//          I can write the 'á','é','í','ó','ú','à','è','ì','ò','ù' and others with ^ without problems. I also tried,
+//          canadian french layout and it worked fine. The tests where made using a notepad.
+//          I couldn't replicate the double deadkey bug for '¨', or '^' in the french layout because
+//          my normal keyboard behavior is to write them twice.
+//          According to MSDN a WM_SYSCOMMAND is generated when the F10 key or the
+//          ALT + 'key' is pressed. I believe those key combinations should send an WM_SYSCOMMAND and when you do
+//          the ascii conversion you break the syscommand and that stops the character being
+//          written. Effectively, during tests both ALT and ALT GR generated a WM_SYSKEYUP and WM_SYSKEYDOWN events(these are
+//          generated previous to WM_SYSCOMMAND).
+//          Maybe i am breaking something else :P
+// 			key_state[VK_MENU] = key_state[VK_LMENU] | key_state[VK_RMENU];
  		} else if (vkey == VK_SHIFT || vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
  			key_state[vkey] = (down) ? 0x80 : 0x00;
  			key_state[VK_SHIFT] = key_state[VK_LSHIFT] | key_state[VK_RSHIFT];
@@ -305,7 +319,8 @@
  		}
   }
   
-  void UpdateKeyState(unsigned int vkey, int msg) {
+  void UpdateKeyState(unsigned int vkey, WPARAM msg) {
+  //TODO: Investigate if the press alt key bug crashes on x64
   	if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) {
 			SetKeyState(vkey, 1);
   	} else if (msg == WM_KEYUP || msg == WM_SYSKEYUP) {
